@@ -1,0 +1,31 @@
+name: Fetch AQI Data
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # every hour at :00
+  workflow_dispatch:        # lets you trigger manually from GitHub UI
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch AirNow data
+        env:
+          AIRNOW_API_KEY: ${{ secrets.AIRNOW_API_KEY }}
+        run: python fetch_aqi.py
+
+      - name: Commit and push aqi.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/aqi.json
+          git diff --cached --quiet || git commit -m "chore: update AQI data [skip ci]"
+          git push
