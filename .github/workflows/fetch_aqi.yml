@@ -2,18 +2,18 @@ name: Fetch AQI Data
 
 on:
   schedule:
-    - cron: "0 * * * *"   # every hour at :00
-  workflow_dispatch:        # lets you trigger manually from GitHub UI
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write        # ← add this
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v5
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -29,3 +29,4 @@ jobs:
           git add data/aqi.json
           git diff --cached --quiet || git commit -m "chore: update AQI data [skip ci]"
           git push
+
