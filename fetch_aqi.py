@@ -1,10 +1,13 @@
 import json
+import time
 import urllib.request
+import urllib.error
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-key   = os.environ["AIRNOW_API_KEY"]
-now   = datetime.utcnow()
+key = os.environ["AIRNOW_API_KEY"]
+
+now = datetime.now(timezone.utc)
 start = now - timedelta(hours=1)
 
 def fmt(d):
@@ -26,8 +29,21 @@ url = (
     f"&API_KEY={key}"
 )
 
-with urllib.request.urlopen(url) as r:
-    data = json.loads(r.read().decode())
+def fetch_with_retry(url, retries=4, timeout=30, backoff=5):
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "air-scraper/1.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode())
+        except (urllib.error.URLError, TimeoutError) as e:
+            last_err = e
+            print(f"⚠️ Attempt {attempt}/{retries} failed: {e}")
+            if attempt < retries:
+                time.sleep(backoff * attempt)  # simple linear backoff
+    raise last_err
+
+data = fetch_with_retry(url)
 
 # De-duplicate — keep latest reading per station
 seen = {}
@@ -38,7 +54,7 @@ for d in data:
 
 output = {
     "updated": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-    "count":   len(seen),
+    "count": len(seen),
     "stations": list(seen.values())
 }
 
@@ -47,4 +63,5 @@ with open("data/aqi.json", "w") as f:
     json.dump(output, f)
 
 print(f"✅ Saved {len(seen)} stations → data/aqi.json")
+
 
